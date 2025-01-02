@@ -1,9 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Expense } from './schema/expense.schema';
-import mongoose, { Model } from 'mongoose';
+import mongoose, { isValidObjectId, Model } from 'mongoose';
 import { UsersService } from 'src/users/users.service';
 
 @Injectable()
@@ -26,18 +26,23 @@ export class ExpensesService {
     return this.expenseModel.find();
   }
 
-  findOne(id: mongoose.Schema.Types.ObjectId) {
-    return this.expenseModel.findById(id).populate({path: 'user', select: '-createdAt -updatedAt -__v'});
+  async findOne(id: mongoose.Schema.Types.ObjectId) {
+    if (!isValidObjectId(id)) throw new BadRequestException('Invalid mongo ID');
+    const expense = await this.expenseModel.findById(id).populate({path: 'user', select: '-createdAt -updatedAt -__v'});
+    if(!expense) throw new NotFoundException("Expense not found")
+    return expense
   }
 
-  update(
-    id: mongoose.Schema.Types.ObjectId,
-    updateExpenseDto: UpdateExpenseDto,
-  ) {
-    return this.expenseModel.findByIdAndUpdate(id, updateExpenseDto);
+  async update(id: mongoose.Schema.Types.ObjectId,updateExpenseDto: UpdateExpenseDto) {
+    if (!isValidObjectId(id)) throw new BadRequestException('Invalid mongo ID');
+    const updatedExpense = await this.expenseModel.findByIdAndUpdate(id, updateExpenseDto, {new:true});
+    if(!updatedExpense) throw new NotFoundException("Expense not found")
+    return updatedExpense
   }
-
-  remove(id: mongoose.Schema.Types.ObjectId) {
-    return this.expenseModel.findByIdAndDelete(id);
+  async remove(id: mongoose.Schema.Types.ObjectId) {
+    if (!isValidObjectId(id)) throw new BadRequestException('Invalid mongo ID');
+    const deletedExpense = await this.expenseModel.findByIdAndDelete(id);
+    if(!deletedExpense) throw new NotFoundException("Expense not found")
+    return deletedExpense
   }
 }
